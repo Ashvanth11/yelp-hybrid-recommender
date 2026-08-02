@@ -6,7 +6,7 @@ strict single-core runtime budget (~100 s end-to-end including training).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/rmse-dark.svg">
-  <img alt="Validation RMSE ladder: global mean baseline ≈1.18, item-based CF alone ≈1.05, CF-stacked hybrid ≈0.98, feature-rich XGBoost 0.9775 (lower is better)" src="assets/rmse-light.svg">
+  <img alt="Validation RMSE ladder: global mean baseline 1.1222, item-based CF alone 1.0274, CF-stacked hybrid 0.9865, feature-rich XGBoost 0.9775 (lower is better)" src="assets/rmse-light.svg">
 </picture>
 
 The repo contains two models (PySpark + XGBoost) that test opposite answers to
@@ -21,7 +21,7 @@ collaborative-filtering stage, or on a richer feature set?**
 | Leakage control | OOF CF predictions | Leave-one-out per-row training statistics |
 | Calibration | Clamp to [1, 5] | Validation-tuned expansion around the global mean, then clamp |
 | Runtime (single core) | Minutes (dominated by pairwise similarities) | ~100 s |
-| Validation RMSE | ~0.98 | **0.9775** |
+| Validation RMSE | 0.9865 | **0.9775** |
 
 **The answer, under this budget: features won.** Dropping the expensive CF
 stage to a cheap bias proxy and reinvesting the runtime in ~50 more features,
@@ -35,7 +35,7 @@ tuning history.
 Roughly in order of impact during development:
 
 1. **User/business bias features** carry most of the signal: smoothed averages
-   take the global-mean baseline from ~1.18 to around ~1.0 on their own.
+   take the global-mean baseline from 1.1222 to around ~1.0 on their own.
 2. **Leave-one-out training statistics.** A user with three ratings has a raw
    average that is one-third the target itself — the model happily overfits to
    that leak. Subtracting each training row's own rating from its user's and
