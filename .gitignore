@@ -1,0 +1,17 @@
+# Data (Yelp dataset — not redistributable)
+data/
+*.json
+yelp_*.csv
+
+# Outputs
+output*.csv
+predictions*.csv
+
+# Python
+__pycache__/
+*.pyc
+venv*/
+.venv/
+
+# OS
+.DS_Store
