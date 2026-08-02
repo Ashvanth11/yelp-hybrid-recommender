@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 176" width="720" height="176" role="img" aria-label="Validation RMSE by model, lower is better">
+<text x="248" y="16" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#52514e">Validation RMSE — lower is better</text>
+<text x="238" y="51" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#52514e" text-anchor="end">Global mean baseline</text>
+<path d="M248,36 H621.6 q4,0 4,4 v14 q0,4 -4,4 H248 Z" fill="#898781"/>
+<text x="633.6" y="51" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="400" fill="#0b0b0b">≈1.18</text>
+<text x="238" y="85" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#52514e" text-anchor="end">Item-based CF alone</text>
+<path d="M248,70 H580.0 q4,0 4,4 v14 q0,4 -4,4 H248 Z" fill="#898781"/>
+<text x="592.0" y="85" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="400" fill="#0b0b0b">≈1.05</text>
+<text x="238" y="119" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#52514e" text-anchor="end">CF-stacked hybrid (this repo)</text>
+<path d="M248,104 H557.6 q4,0 4,4 v14 q0,4 -4,4 H248 Z" fill="#2a78d6"/>
+<text x="569.6" y="119" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="400" fill="#0b0b0b">≈0.98</text>
+<text x="238" y="153" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" fill="#52514e" text-anchor="end">Feature-rich XGBoost (this repo)</text>
+<path d="M248,138 H556.8 q4,0 4,4 v14 q0,4 -4,4 H248 Z" fill="#2a78d6"/>
+<text x="568.8" y="153" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#0b0b0b">0.9775</text>
+<line x1="248" y1="30" x2="248" y2="164" stroke="#c3c2b7" stroke-width="1"/>
+</svg>

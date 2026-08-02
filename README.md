@@ -1,9 +1,17 @@
 # Yelp Hybrid Recommender
 
-Predicting the star rating a user will give a business on the Yelp dataset.
-Two complementary models, both PySpark + XGBoost, exploring opposite ends of
-the same trade-off: **spend the compute on a smarter collaborative-filtering
-stage, or on a richer feature set?**
+Predicting the star rating a user will give a business on the Yelp dataset —
+**best validation RMSE 0.9775** on ~142k held-out user–business pairs, under a
+strict single-core runtime budget (~100 s end-to-end including training).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/rmse-dark.svg">
+  <img alt="Validation RMSE ladder: global mean baseline ≈1.18, item-based CF alone ≈1.05, CF-stacked hybrid ≈0.98, feature-rich XGBoost 0.9775 (lower is better)" src="assets/rmse-light.svg">
+</picture>
+
+The repo contains two models (PySpark + XGBoost) that test opposite answers to
+one question: **given a fixed compute budget, is it better spent on a smarter
+collaborative-filtering stage, or on a richer feature set?**
 
 | | `cf_stacked_recommender.py` | `feature_rich_recommender.py` |
 |---|---|---|
@@ -15,57 +23,62 @@ stage, or on a richer feature set?**
 | Runtime (single core) | Minutes (dominated by pairwise similarities) | ~100 s |
 | Validation RMSE | ~0.98 | **0.9775** |
 
-## Model 1: CF-stacked (`cf_stacked_recommender.py`)
+**The answer, under this budget: features won.** Dropping the expensive CF
+stage to a cheap bias proxy and reinvesting the runtime in ~50 more features,
+leave-one-out leakage control, and output calibration beat the architecturally
+fancier stack. The two are not a controlled ablation — the feature-rich model
+changes several things at once — but the direction was consistent across the
+tuning history.
 
-The architecturally interesting one. Its strength is **how it combines two
-fundamentally different signals without leaking the target**:
+## What moved the needle
 
-- **Stage 1** is classic item-based collaborative filtering — Pearson
-  similarity over co-raters, with *significance weighting* (similarities from
-  few co-raters are shrunk by `min(n, 50)/50`) and *case amplification*
-  (`sim·|sim|^1.5`) to suppress noisy neighbors. Predictions come from the
-  top-50 neighbors' mean-centered ratings, blended toward a bias fallback when
-  the neighborhood is thin.
-- **Stage 2** feeds the CF prediction into XGBoost as a feature, along with 9
-  derivatives (neighbor count, confidence, residual vs. user and business
-  baselines, confidence-weighted variants). The tree model learns *when* to
-  trust CF — many neighbors, low disagreement with baselines — instead of a
-  single global blend weight.
-- **The stacking is out-of-fold:** training rows get CF predictions from a
-  5-fold scheme where each row is predicted by a CF model that never saw it.
-  Without this, the second stage would learn to trust CF far more than it
-  deserves at test time.
+Roughly in order of impact during development:
 
-## Model 2: Feature-rich (`feature_rich_recommender.py`)
-
-The best-scoring one, built for a strict single-core runtime budget. It drops
-the expensive CF stage (keeping a cheap bias proxy in the CF feature slots)
-and spends the saved runtime on **feature engineering and leakage discipline**:
-
-- **Leave-one-out training statistics** — for every training row, that row's
-  own rating is subtracted from its user's and business's average, variance,
-  min/max, and rating-distribution features. A user with three ratings has an
-  average that is one-third the target itself; removing it gave a measurable
-  RMSE gain.
-- **Bayesian-smoothed rating estimates** at multiple shrinkage constants, with
-  Yelp JSON profile stars as priors, so sparse users and businesses degrade
-  gracefully toward informative priors instead of the global mean.
-- **Rating-distribution features** — per user and business: fraction of
-  ratings that are ≤2, ≥4, exactly 1, exactly 5, plus cross terms (a
-  harsh-rater × polarizing-business interaction is very predictive of 1-star
-  outcomes).
-- **~50 extra content features** over Model 1: business attributes (alcohol,
-  noise level, attire, wifi…), weekly opening hours, evening/weekend checkin
-  ratios, tip/photo engagement, top-24 category indicators, and bias ×
-  confidence × price cross features.
-- **Output calibration** — the raw model is conservative at the extremes, so
-  predictions are linearly expanded around the global mean (factor tuned on
-  validation) before clamping.
-- Hyperparameters were tuned with Bayesian optimization for this
-  configuration.
+1. **User/business bias features** carry most of the signal: smoothed averages
+   take the global-mean baseline from ~1.18 to around ~1.0 on their own.
+2. **Leave-one-out training statistics.** A user with three ratings has a raw
+   average that is one-third the target itself — the model happily overfits to
+   that leak. Subtracting each training row's own rating from its user's and
+   business's average/variance/min/max/rate features gave a measurable RMSE
+   gain and cost nothing at inference (test rows use full statistics).
+3. **Rating-distribution features** — per user and business, the fraction of
+   ratings that are ≤2, ≥4, exactly 1, exactly 5, plus cross terms. A
+   harsh-rater × polarizing-business interaction is very predictive of 1-star
+   outcomes.
+4. **Bayesian smoothing toward profile priors.** User/business averages are
+   shrunk toward their Yelp JSON profile stars (at several shrinkage
+   constants), so sparse entities degrade toward an informative prior rather
+   than the global mean, with explicit cold-start flags.
+5. **Output calibration.** The raw model is conservative at the extremes;
+   linearly expanding predictions around the global mean (factor tuned on
+   validation) recovered a final slice of RMSE.
+6. **CF stacking** (Model 1): feeding the CF prediction to XGBoost as a
+   feature with 9 derivatives — neighbor count, confidence, residuals vs.
+   user/business baselines — beat a fixed CF/model blend weight, because the
+   trees learn *when* CF is trustworthy.
 
 Error distribution at RMSE 0.9775 (~142k validation pairs): 102,919 within 1
 star, 32,034 within 1–2, 6,169 within 2–3, 922 above 3.
+
+## The two models
+
+### `cf_stacked_recommender.py` — the architecture play
+
+Classic item-based CF (Pearson over co-raters, significance weighting
+`min(n, 50)/50`, case amplification `sim·|sim|^1.5`, top-50 neighborhood with a
+bias fallback when thin) stacked into XGBoost. The stacking is **out-of-fold**:
+training rows get CF predictions from a 5-fold scheme where each row is
+predicted by a CF model that never saw it — without this, the second stage
+learns to trust CF far more than it deserves at test time.
+
+### `feature_rich_recommender.py` — the feature play
+
+Single XGBoost regressor (hyperparameters tuned with Bayesian optimization)
+over ~120 features: everything above plus business attributes (alcohol, noise
+level, attire, wifi…), weekly opening hours, evening/weekend checkin ratios,
+tip/photo engagement, top-24 category indicators, and bias × confidence ×
+price cross features. The CF feature slots are filled by the non-leaky bias
+proxy so the whole pipeline fits the single-core budget.
 
 **Natural next step:** the two strengths are orthogonal — restoring the OOF CF
 stack inside the feature-rich model (where runtime isn't capped) and re-tuning
